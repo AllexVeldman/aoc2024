@@ -1,6 +1,7 @@
 use std::{
     collections::{BinaryHeap, HashMap},
     ops::Add,
+    time::Instant,
 };
 
 /// A position on the playing field
@@ -31,6 +32,7 @@ struct Button {
 #[derive(Debug, PartialEq, Eq)]
 struct State {
     cost: usize,
+    heuristic: usize,
     position: Position,
 }
 
@@ -38,7 +40,7 @@ impl Ord for State {
     /// BinaryHeap is a max-heap so will pop the greatest.
     /// Flip ordering so self > other if self.cost < other.cost
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.cost.cmp(&self.cost)
+        (other.cost + other.heuristic).cmp(&(self.cost + self.heuristic))
     }
 }
 
@@ -60,12 +62,18 @@ fn shortest_path(puzzle: &Puzzle) -> Option<usize> {
     let mut prio_queue = BinaryHeap::new();
     prio_queue.push(State {
         cost: 0,
+        heuristic: huristics_func(&Position { x: 0, y: 0 }, &target),
         position: Position { x: 0, y: 0 },
     });
 
     let mut final_cost = None;
-    while let Some(State { cost, position }) = prio_queue.pop() {
-        // println!("{position:?}: {cost}");
+    while let Some(State {
+        cost,
+        position,
+        heuristic,
+    }) = prio_queue.pop()
+    {
+        // println!("{position:?}: {cost} ({heuristic})");
         // We hit the target
         if position == target {
             final_cost = Some(cost);
@@ -88,6 +96,7 @@ fn shortest_path(puzzle: &Puzzle) -> Option<usize> {
         ] {
             let next = State {
                 cost: cost + step_cost,
+                heuristic: huristics_func(&neighbor, &target),
                 position: neighbor,
             };
             if next.cost < *dist.get(&next.position).unwrap_or(&usize::MAX) {
@@ -99,6 +108,13 @@ fn shortest_path(puzzle: &Puzzle) -> Option<usize> {
 
     println!("Cost: {final_cost:?}");
     final_cost
+}
+
+fn huristics_func(pos: &Position, target: &Position) -> usize {
+    let dist_x = target.x.saturating_sub(pos.x) as f64;
+    let dist_y = target.y.saturating_sub(pos.y) as f64;
+
+    (dist_x.powi(2) + dist_y.powi(2)).sqrt() as usize
 }
 
 struct Puzzle {
@@ -182,7 +198,9 @@ fn puzzle_1(puzzles: &[Puzzle]) -> usize {
 fn main() {
     let input = mangle(&std::fs::read_to_string("input.txt").unwrap());
 
-    println!("{}", puzzle_1(&input)); // 31552
+    let now = Instant::now();
+    println!("{}", puzzle_1(&input));
+    println!("Elapsed: {:.2}s", now.elapsed().as_secs_f64());
 }
 
 #[cfg(test)]
